@@ -21,7 +21,9 @@
   img { width: 120px; height: 120px; border-radius: 28px; box-shadow: 0 8px 24px rgba(0,0,0,.15); }
   h1 { margin: 6px 0 0; font: 800 28px/1.1 Georgia, serif; }
   p { margin: 0; color: var(--muted); font-size: 15px; }
-  a.btn { display: block; width: 100%; text-decoration: none; text-align: center; border-radius: 12px; padding: 14px 18px; font-weight: 700; }
+  .btn { font: inherit; border: 0; cursor: pointer; }
+  .btn[hidden] { display: none !important; }
+  .btn { display: block; width: 100%; text-decoration: none; text-align: center; border-radius: 12px; padding: 14px 18px; font-weight: 700; }
   .main { background: var(--btn); color: #fff; }
   .alt { border: 1px solid var(--line); color: var(--ink); }
   @media (prefers-color-scheme: dark) { .main { color: #0d1626; } }
@@ -32,18 +34,31 @@
   <img src="icon-512.png" alt="">
   <h1>Italiano per Dan</h1>
   <p id="msg">Apro l'app…</p>
-  <a class="btn main" id="open" href="https://claude.ai/artifact/WEg7tYh2oXF46P9idVhSwS">Apri l'app</a>
+  <button class="btn main" id="install" hidden type="button">📲 Installa sul telefono</button>
+  <a class="btn main" id="open"href="https://claude.ai/artifact/WEg7tYh2oXF46P9idVhSwS">Apri l'app</a>
   <a class="btn alt" id="chrome" hidden href="intent://claude.ai/artifact/WEg7tYh2oXF46P9idVhSwS#Intent;scheme=https;package=com.android.chrome;end">Apri in Chrome (mic e voce)</a>
   <p>The app is private: it opens only with your Claude login.</p>
 </main>
 <script>
   const isAndroid = /android/i.test(navigator.userAgent);
   if (isAndroid) document.getElementById("chrome").hidden = false;
-  // Open the app straight away once per launch; coming back here shows the buttons instead of looping.
-  let first = true;
-  try { first = !sessionStorage.getItem("opened"); sessionStorage.setItem("opened", "1"); } catch {}
-  if (first) setTimeout(() => { location.href = document.getElementById("open").href; }, 400);
-  else document.getElementById("msg").textContent = "Tocca per aprire.";
+  const msg = document.getElementById("msg");
+  const installed = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (installed) {
+    // Opened from the home-screen icon: go straight to the app once per launch (no loop when coming back).
+    let first = true;
+    try { first = !sessionStorage.getItem("opened"); sessionStorage.setItem("opened", "1"); } catch {}
+    if (first) setTimeout(() => { location.href = document.getElementById("open").href; }, 400);
+    else msg.textContent = "Tocca per aprire.";
+  } else {
+    // In a normal browser tab: stay here so Chrome can offer "Install app".
+    msg.textContent = "Install it: Chrome menu ⋮ → Install app (or Add to Home screen).";
+  }
+  const inst = document.getElementById("install");
+  let promptEv = null;
+  addEventListener("beforeinstallprompt", e => { e.preventDefault(); promptEv = e; inst.hidden = false; });
+  inst.addEventListener("click", async () => { if (!promptEv) return; promptEv.prompt(); await promptEv.userChoice; promptEv = null; inst.hidden = true; });
+  addEventListener("appinstalled", () => { inst.hidden = true; msg.textContent = "Installata! Apri l'icona dalla schermata Home."; });
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
